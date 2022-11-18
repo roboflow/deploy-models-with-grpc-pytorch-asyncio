@@ -2,13 +2,15 @@
 
 ![alt](header.png)
 
-Today we're going to see how to deploy a machine-learning model behind gRPC service running via asyncio. gRPC promises to be faster, more scalable and more optimized than HTTP. We will use PyTorch to create an image classifier and perform inference using gRPC calls.
+Today we're going to see how to deploy a machine-learning model behind gRPC service running via asyncio. gRPC promises to be faster, more scalable and more optimized than HTTP v1. [This is a good article](https://www.altexsoft.com/blog/what-is-grpc/) about gRPC pros and cons, feel free to have a look before. gRPC is supported in all major programming languages and will create types hints, client and server code for you, making it easier to incorporate a new service in your stack.
+
+We will use [PyTorch](https://pytorch.org/get-started/locally/) to create an image classifier and perform inference using gRPC calls.
 
 This article is also hosted on [GitHub](https://github.com/FrancescoSaverioZuppichini/deploy-models-with-grpc-pytorch-asyncio)
 
 ## What's gRPC
 
-What's [gRPC](https://grpc.io/)? GRPC is a Remote Procedure Call (RPC) framework that runs on any device. It's developed and maintained mainly by Google and it's widely used in the industry. It allows two machines to communicate, similar to HTTP but with better syntax and performance. It's used to define microservices that may use different programming languages.
+What's [gRPC](https://grpc.io/)? GRPC is a framework for implementing Remote Procedure Call (RPC) via HTTP/2 that runs on any device. It's developed and maintained mainly by Google and it's widely used in the industry. It allows two machines to communicate, similar to HTTP but with better syntax and performance. It's used to define microservices that may use different programming languages.
 
 It works by defining the fields of the messages the client and server will exchange and the signature of the function we will expose, with a special syntax in a `.proto` file, then gRPC generates both client and server code and you can call the function directly from the client.
 
@@ -44,7 +46,7 @@ We will work on 4 files,
 ```
 
 - `client.py` holds the client code we will use to send inference requests
-- `server.py` holds the server code responsible of receiving the inference request and sending a reply
+- `server.py` holds the server code responsible for receiving the inference request and sending a reply
 - `inference.py` holds the actual model and inference logic
 - `inference.proto` holds the protocol buffer messages definition
 
