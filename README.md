@@ -2,6 +2,8 @@
 
 Today we're going to see how to deploy a machine-learning model behind gRPC service running via asyncio. gRPC promises to be faster, more scalable and more optimized than HTTP. We will use PyTorch to create an image classifier and perform inference using gRPC calls.
 
+This article is also hosted on [GitHub](https://github.com/FrancescoSaverioZuppichini/deploy-models-with-grpc-pytorch-asyncio)
+
 ## What's gRPC
 
 What's [gRPC](https://grpc.io/)? GRPC is a Remote Procedure Call (RPC) framework that runs on any device. It's developed and maintained mainly by Google and it's widely used in the industry. It allows two machines to communicate, similar to HTTP but with better syntax and performance. It's used to define microservices that may use different programming languages.
