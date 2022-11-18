@@ -1,5 +1,7 @@
 # Deploying Machine Learning Models with PyTorch, gRPC and asyncio
 
+![alt](header.png)
+
 Today we're going to see how to deploy a machine-learning model behind gRPC service running via asyncio. gRPC promises to be faster, more scalable and more optimized than HTTP. We will use PyTorch to create an image classifier and perform inference using gRPC calls.
 
 This article is also hosted on [GitHub](https://github.com/FrancescoSaverioZuppichini/deploy-models-with-grpc-pytorch-asyncio)
