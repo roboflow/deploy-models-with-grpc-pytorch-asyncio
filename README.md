@@ -1,18 +1,18 @@
 # Deploying Machine Learning Models with PyTorch, gRPC and asyncio
 
-Today we're going to see how to deploy a machine learning model behind gRPC service runnning via asyncio. gRPC promises to be faster, more scalable and more optimized than HTTP. We will use PyTorch to create an image classifier and performing inference using gRPC calls.
+Today we're going to see how to deploy a machine-learning model behind gRPC service running via asyncio. gRPC promises to be faster, more scalable and more optimized than HTTP. We will use PyTorch to create an image classifier and perform inference using gRPC calls.
 
 ## What's gRPC
 
-What's [gRPC](https://grpc.io/)? GRPC is a Remote Produre Call (RPC) framework that runs on any device. It's develop and mainted mainly by Google and it's widely used in the industry. It allows two machine to communicate, similar to HTTP but with better syntax and performance. It's used to define microservices that may use different programming languages.
+What's [gRPC](https://grpc.io/)? GRPC is a Remote Procedure Call (RPC) framework that runs on any device. It's developed and maintained mainly by Google and it's widely used in the industry. It allows two machines to communicate, similar to HTTP but with better syntax and performance. It's used to define microservices that may use different programming languages.
 
-It works by defining the fields of the messages client and server will exchange and the signature of the function we will expose, with a special syntax in a `.proto` file, then gRPC generates both client and server code and you can call the function directly from the client.
+It works by defining the fields of the messages the client and server will exchange and the signature of the function we will expose, with a special syntax in a `.proto` file, then gRPC generates both client and server code and you can call the function directly from the client.
 
-gRPC services send and receive data as Protocol Buffer (Protobuf) messages, they can be better compress than human readable format (like JSON or XML), thus the better performance.
+gRPC services send and receive data as Protocol Buffer (Protobuf) messages, they can be better compressed than human-readable format (like JSON or XML), thus the better performance.
 
 ## Getting Started
 
-Let's start by setup our enviroment by creating a virtual env
+Let's start by setup our environment using virtual env
 
 **Tested with python 3.9**
 
@@ -40,7 +40,7 @@ We will work on 4 files,
 ```
 
 - `client.py` holds the client code we will use to send inference requests
-- `server.py` holds the server code responsable of receiving the inference request and sending a reply
+- `server.py` holds the server code responsible of receiving the inference request and sending a reply
 - `inference.py` holds the actual model and inference logic
 - `inference.proto` holds the protocol buffer messages definition
 
@@ -49,7 +49,7 @@ Let's start by coding our model inside `inference.py`
 
 ## Inference
 
-We will use `resnet34` from `torchvision`, let's start by defining our preprocessing transformation
+We will use `resnet34` from `torchvision`. First thing, we define our preprocessing transformation
 
 ```python
 # inference.py
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     print(tensor.shape)
 ```
 
-Sweet, let's add the model
+Sweet, now the model
 
 ```python
 # inference.py
@@ -103,15 +103,15 @@ if __name__ == "__main__":
 
 ```
 
-The model will output `262`, that is the right class for our `cat`. Our `inference` function takes a list of `Pil` images and create a batch, then it collects the right classes and convert them to a list of class ids.
+The model will output `262`, which is the right class for our `cat`. Our `inference` function takes a list of `Pil` images and creates a batch, then it collects the right classes and converts them to a list of class ids.
 
 Nice, we have our model setup.
 
 ## Server
 
-Next step is to create the actual gRPC server, the first thing to do is to describe the message and the service to gRPC in the `.proto` file. 
+The next step is to create the actual gRPC server. First, we describe the message and the service in the `.proto` file. 
 
-A list of all types for the messages can be find [here](https://learn.microsoft.com/en-us/dotnet/architecture/grpc-for-wcf-developers/protocol-buffers) and the official python tutorial for gRPC [here](https://grpc.io/docs/languages/python/basics/)
+A list of all types of messages can be found [here](https://learn.microsoft.com/en-us/dotnet/architecture/grpc-for-wcf-developers/protocol-buffers) and the official python tutorial for gRPC [here](https://grpc.io/docs/languages/python/basics/)
 
 ### Proto
 
@@ -130,7 +130,7 @@ service InferenceServer {
 
 ```
 
-This tells grpc we have an `InferenceServer` service with an `inference` function, notice that we need to specify the type of the messages: `InferenceRequest` and `InferenceReply`
+This tells gRPC we have an `InferenceServer` service with an `inference` function, notice that we need to specify the type of the messages: `InferenceRequest` and `InferenceReply`
 
 ```proto
 // inference.proto
@@ -146,7 +146,7 @@ message InferenceReply {
 }
 ```
 
-Our request will send a list of bytes (images), the `repeated` keyword is used to defined lists, and we will send back a list of predictions
+Our request will send a list of bytes (images), the `repeated` keyword is used to define lists, and we will send back a list of predictions
 
 ### Build the server and client
 
@@ -166,11 +166,11 @@ This will generate the following files
     ...
 ```
 
-- `inference_pb2_grpc` contains our grpc server definition
-- `inference_pb2` contains our grpc messages definition
-- `inference_pb2` contains our grpc messages types definition
+- `inference_pb2_grpc` contains our gRPC's server definition
+- `inference_pb2` contains our gRPC's messages definition
+- `inference_pb2` contains our gRPC's messages types definition
 
-We know have to code our service, 
+We now have to code our service, 
 
 ```python
 # server.py
@@ -184,7 +184,7 @@ from inference_pb2 import InferenceRequest, InferenceReply
 ...
 ```
 
-To create our gRPC server we need to import `InferenceServer` and `add_InferenceServerServicer_to_server` from the generated `inference_pb2_grpc`. Our logic will go inside a subclass of `InferenceServer` in the `inference` function, the one we defined in the `.proto` file.
+To create the gRPC server we need to import `InferenceServer` and `add_InferenceServerServicer_to_server` from the generated `inference_pb2_grpc`. Our logic will go inside a subclass of `InferenceServer` in the `inference` function, the one we defined in the `.proto` file.
 
 ```python
 # server.py
@@ -204,7 +204,7 @@ class InferenceService(InferenceServer):
 
 Notice we subclass `InferenceServer`, we add our logic inside `inference` and we label it as an `async` function, this is because we will lunch our service using [asyncio](https://docs.python.org/3/library/asyncio.html). 
 
-We know need to tell gRPC to lunch our service.
+We now need to tell gRPC how to start our service.
 
 ```python
 # server.py
@@ -332,7 +332,7 @@ async def main():
         )
 ```
 
-We defined our channel using `grpc.aio.insecure_channel` context manager, we create an instance of `InferenceServerStub` and we `await` the `.inference` method. The `.inference` method takes `InferenceRequest` instance containing our images in `bytes`. We receive back an `InferenceReply` instance and we print the predictions.
+We define our channel using `grpc.aio.insecure_channel` context manager, we create an instance of `InferenceServerStub` and we `await` the `.inference` method. The `.inference` method takes `InferenceRequest` instance containing our images in `bytes`. We receive back an `InferenceReply` instance and we print the predictions.
 
 To get the bytes from an image, we can use `Pillow` and `BytesIO`
 
@@ -394,7 +394,7 @@ let's run it!
 python src/client.py
 ```
 
-Result in the following output in the client
+It results in the following output in the client
 
 ```
 // client
@@ -419,7 +419,7 @@ Nice!!! We can also pass multiple images,
                 )
 ```
 
-We just copied and pasted `[image_bytes, image_bytes, image_bytes]`
+We just copied and pasted `[image_bytes, image_bytes, image_bytes]` to send 3 images
 
 If we run it,
 
@@ -433,11 +433,11 @@ We get
 INFO:root:[✅] pred = [282, 282, 282] in 208.39ms
 ```
 
-yes, three predictions on the save gRPC call!
+yes, 3 predictions on the same gRPC call! 🚀🚀🚀
 
 ## Conclusion
 
-Today we have seen how to deploy a machine learning model using PyTorch, gRPC and asyncio. A scalable, effective and performant to make your model accessable. There are many gRPC features we didn't touch like [streaming](https://grpc.io/docs/what-is-grpc/core-concepts/#server-streaming-rpc). 
+Today we have seen how to deploy a machine learning model using PyTorch, gRPC and asyncio. A scalable, effective and performant to make your model accessible. There are many gRPC features we didn't touch like [streaming](https://grpc.io/docs/what-is-grpc/core-concepts/#server-streaming-rpc). 
 
 I hope it helps!
 
