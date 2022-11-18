@@ -1,0 +1,5 @@
+grpcio
+grpcio-tools
+torch
+torchvision
+Pillow==9.3.0

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+// The inference service definition.
+service InferenceServer {
+  // Sends a inference reply
+  rpc inference (InferenceRequest) returns (InferenceReply) {}
+}
+
+// The request message containing the images.
+message InferenceRequest {
+    repeated bytes image = 1;
+}
+
+// The response message containing the classes ids
+message InferenceReply {
+    repeated uint32 pred = 1;
+}
