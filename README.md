@@ -1,6 +1,6 @@
-# Deploying Machine Learning Models with gRPC
+# Deploying Machine Learning Models with PyTorch, gRPC and asyncio
 
-Today we're going to see how to deploy a machine learning model behind gRPC. We will use PyTorch to create an image classifier and performing inference using gRPC calls.
+Today we're going to see how to deploy a machine learning model behind gRPC service runnning via asyncio. gRPC promises to be faster, more scalable and more optimized than HTTP. We will use PyTorch to create an image classifier and performing inference using gRPC calls.
 
 ## What's gRPC
 
@@ -117,7 +117,7 @@ A list of all types for the messages can be find [here](https://learn.microsoft.
 
 We will start by defining our `InferenceServer` service
 
-```
+```proto
 // inference.proto
 
 syntax = "proto3";
@@ -130,9 +130,9 @@ service InferenceServer {
 
 ```
 
-This tells grpc we have a `InferenceServer` service with a `inference` function, notice that we need to specify the type of the messages: `InferenceRequest` and `InferenceReply`
+This tells grpc we have an `InferenceServer` service with an `inference` function, notice that we need to specify the type of the messages: `InferenceRequest` and `InferenceReply`
 
-```
+```proto
 // inference.proto
 ...
 // The request message containing the images.
@@ -152,7 +152,7 @@ Our request will send a list of bytes (images), the `repeated` keyword is used t
 
 Now, we need to generate the client and server code using `grpcio-tools` (we install it at the beginning). 
 
-```
+```bash
 cd src && python -m grpc_tools.protoc -I . --python_out=. --pyi_out=. --grpc_python_out=. inference.proto 
 ```
 
@@ -169,3 +169,278 @@ This will generate the following files
 - `inference_pb2_grpc` contains our grpc server definition
 - `inference_pb2` contains our grpc messages definition
 - `inference_pb2` contains our grpc messages types definition
+
+We know have to code our service, 
+
+```python
+# server.py
+# we will use asyncio to run our service
+import asyncio 
+...
+# from the generated grpc server definition, import the required stuff
+from inference_pb2_grpc import InferenceServer, add_InferenceServerServicer_to_server
+# import the requests and reply types
+from inference_pb2 import InferenceRequest, InferenceReply
+...
+```
+
+To create our gRPC server we need to import `InferenceServer` and `add_InferenceServerServicer_to_server` from the generated `inference_pb2_grpc`. Our logic will go inside a subclass of `InferenceServer` in the `inference` function, the one we defined in the `.proto` file.
+
+```python
+# server.py
+class InferenceService(InferenceServer):
+    def open_image(self, image: bytes) -> Image.Image:
+        image = Image.open(BytesIO(image))
+        return image
+
+    async def inference(self, request: InferenceRequest, context) -> InferenceReply:
+        logging.info(f"[🦾] Received request")
+        start = perf_counter()
+        images = list(map(self.open_image, request.image))
+        preds = inference(images)
+        logging.info(f"[✅] Done in {(perf_counter() - start) * 1000:.2f}ms")
+        return InferenceReply(pred=preds)
+```
+
+Notice we subclass `InferenceServer`, we add our logic inside `inference` and we label it as an `async` function, this is because we will lunch our service using [asyncio](https://docs.python.org/3/library/asyncio.html). 
+
+We know need to tell gRPC to lunch our service.
+
+```python
+# server.py
+...
+from inference_pb2_grpc import InferenceServer, add_InferenceServerServicer_to_server
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+async def serve():
+    server = grpc.aio.server()
+    add_InferenceServerServicer_to_server(InferenceService(), server)
+    # using ip v6
+    adddress = "[::]:50052"
+    server.add_insecure_port(adddress)
+    logging.info(f"[📡] Starting server on {adddress}")
+    await server.start()
+    await server.wait_for_termination()
+```
+
+Line by line, we create a grpc asyncio server using `grpc.aio.server()`, we add our service by passing it to `add_InferenceServerServicer_to_server` then we listed on a custom port using ipv6 by calling the `.add_insecure_port` method and finally we await the `.start` server method
+
+Finally, 
+
+```python
+# server.py
+if __name__ == "__main__":
+    asyncio.run(serve())
+```
+
+If you know run the file
+
+```bash
+python src/server.py
+```
+
+You'll see
+
+```
+INFO:root:[📡] Starting server on [::]:50052
+```
+
+The full server looks like
+
+```python
+import asyncio
+from time import perf_counter
+
+import grpc
+from PIL import Image
+from io import BytesIO
+from inference import inference
+import logging
+from inference_pb2_grpc import InferenceServer, add_InferenceServerServicer_to_server
+from inference_pb2 import InferenceRequest, InferenceReply
+
+logging.basicConfig(level=logging.INFO)
+
+
+class InferenceService(InferenceServer):
+    def open_image(self, image: bytes) -> Image.Image:
+        image = Image.open(BytesIO(image))
+        return image
+
+    async def inference(self, request: InferenceRequest, context) -> InferenceReply:
+        logging.info(f"[🦾] Received request")
+        start = perf_counter()
+        images = list(map(self.open_image, request.image))
+        preds = inference(images)
+        logging.info(f"[✅] Done in {(perf_counter() - start) * 1000:.2f}ms")
+        return InferenceReply(pred=preds)
+
+
+async def serve():
+    server = grpc.aio.server()
+    add_InferenceServerServicer_to_server(InferenceService(), server)
+    # using ip v6
+    adddress = "[::]:50052"
+    server.add_insecure_port(adddress)
+    logging.info(f"[📡] Starting server on {adddress}")
+    await server.start()
+    await server.wait_for_termination()
+
+
+if __name__ == "__main__":
+    asyncio.run(serve())
+```
+
+
+Sweet 🎉! We have our gRPC running with asyncio. We now need to define our **client**.
+
+## Client
+
+Creating a client is straightforward, similar to before we need the definitions that were generated in the previous step.
+
+```python
+# client.py
+
+import asyncio
+
+import grpc
+
+from inference_pb2 import InferenceRequest, InferenceReply
+from inference_pb2_grpc import InferenceServerStub
+```
+
+`InferenceServerStub` is the gRPC communication point. Let's create our `async` function to send `InferenceRequest` and collect `InferenceReply`
+
+```python
+...
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+async def main():
+    async with grpc.aio.insecure_channel("[::]:50052 ") as channel:
+        stub = InferenceServerStub(channel)
+        start = perf_counter()
+
+        res: InferenceReply = await stub.inference(
+            InferenceRequest(image=[image_bytes])
+        )
+        logging.info(
+            f"[✅] pred = {pformat(res.pred)} in {(perf_counter() - start) * 1000:.2f}ms"
+        )
+```
+
+We defined our channel using `grpc.aio.insecure_channel` context manager, we create an instance of `InferenceServerStub` and we `await` the `.inference` method. The `.inference` method takes `InferenceRequest` instance containing our images in `bytes`. We receive back an `InferenceReply` instance and we print the predictions.
+
+To get the bytes from an image, we can use `Pillow` and `BytesIO`
+
+```python
+from io import BytesIO
+from PIL import Image
+
+# client.py
+
+image = Image.open("./examples/cat.jpg")
+buffered = BytesIO()
+image.save(buffered, format="JPEG")
+image_bytes = buffered.getvalue()
+```
+
+The full client code looks like
+
+```python
+import asyncio
+from io import BytesIO
+
+import grpc
+from PIL import Image
+
+from inference_pb2 import InferenceRequest, InferenceReply
+from inference_pb2_grpc import InferenceServerStub
+import logging
+from pprint import pformat
+from time import perf_counter
+
+image = Image.open("./examples/cat.jpg")
+buffered = BytesIO()
+image.save(buffered, format="JPEG")
+image_bytes = buffered.getvalue()
+
+logging.basicConfig(level=logging.INFO)
+
+
+async def main():
+    async with grpc.aio.insecure_channel("[::]:50052 ") as channel:
+        stub = InferenceServerStub(channel)
+        start = perf_counter()
+
+        res: InferenceReply = await stub.inference(
+            InferenceRequest(image=[image_bytes])
+        )
+        logging.info(
+            f"[✅] pred = {pformat(res.pred)} in {(perf_counter() - start) * 1000:.2f}ms"
+        )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+let's run it!
+
+```bash
+python src/client.py
+```
+
+Result in the following output in the client
+
+```
+// client
+INFO:root:[✅] pred = [282] in 86.39ms
+```
+
+and on the server
+
+```
+// server
+INFO:root:[🦾] Received request
+INFO:root:[✅] Done in 84.03ms
+```
+
+Nice!!! We can also pass multiple images, 
+
+```python
+# client.py
+...
+        res: InferenceReply = await stub.inference(
+                    InferenceRequest(image=[image_bytes, image_bytes, image_bytes])
+                )
+```
+
+We just copied and pasted `[image_bytes, image_bytes, image_bytes]`
+
+If we run it,
+
+```bash
+python src/client.py
+```
+
+We get
+
+```
+INFO:root:[✅] pred = [282, 282, 282] in 208.39ms
+```
+
+yes, three predictions on the save gRPC call!
+
+## Conclusion
+
+Today we have seen how to deploy a machine learning model using PyTorch, gRPC and asyncio. A scalable, effective and performant to make your model accessable. There are many gRPC features we didn't touch like [streaming](https://grpc.io/docs/what-is-grpc/core-concepts/#server-streaming-rpc). 
+
+I hope it helps!
+
+See you in the next one,
+
+Francesco
